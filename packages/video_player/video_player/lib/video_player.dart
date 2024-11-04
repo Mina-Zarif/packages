@@ -455,6 +455,11 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
         return;
       }
 
+      // Check if already initialized to prevent re-initialization
+      if (initializingCompleter.isCompleted && event.eventType == VideoEventType.initialized) {
+        return;
+      }
+
       switch (event.eventType) {
         case VideoEventType.initialized:
           value = value.copyWith(
@@ -465,44 +470,56 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
             errorDescription: null,
             isCompleted: false,
           );
+
+          // Assert if initializingCompleter is already completed
           assert(
-            !initializingCompleter.isCompleted,
-            'VideoPlayerController already initialized. This is typically a '
-            'sign that an implementation of the VideoPlayerPlatform '
-            '(${_videoPlayerPlatform.runtimeType}) has a bug and is sending '
-            'more than one initialized event per instance.',
+          !initializingCompleter.isCompleted,
+          'VideoPlayerController already initialized. This is typically a '
+              'sign that an implementation of the VideoPlayerPlatform '
+              '(${_videoPlayerPlatform.runtimeType}) has a bug and is sending '
+              'more than one initialized event per instance.',
           );
-          if (initializingCompleter.isCompleted) {
-            throw StateError('VideoPlayerController already initialized');
+
+          // Complete the initialization if it’s not completed yet
+          if (!initializingCompleter.isCompleted) {
+            initializingCompleter.complete(null);
           }
-          initializingCompleter.complete(null);
+
           _applyLooping();
           _applyVolume();
           _applyPlayPause();
+          break;
+
         case VideoEventType.completed:
-          // In this case we need to stop _timer, set isPlaying=false, and
-          // position=value.duration. Instead of setting the values directly,
-          // we use pause() and seekTo() to ensure the platform stops playing
-          // and seeks to the last frame of the video.
+        // Stop playback, set isPlaying to false, and move to the end position
           pause().then((void pauseResult) => seekTo(value.duration));
           value = value.copyWith(isCompleted: true);
+          break;
+
         case VideoEventType.bufferingUpdate:
           value = value.copyWith(buffered: event.buffered);
+          break;
+
         case VideoEventType.bufferingStart:
           value = value.copyWith(isBuffering: true);
+          break;
+
         case VideoEventType.bufferingEnd:
           value = value.copyWith(isBuffering: false);
+          break;
+
         case VideoEventType.isPlayingStateUpdate:
-          if (event.isPlaying ?? false) {
-            value =
-                value.copyWith(isPlaying: event.isPlaying, isCompleted: false);
-          } else {
-            value = value.copyWith(isPlaying: event.isPlaying);
-          }
+          value = value.copyWith(
+            isPlaying: event.isPlaying,
+            isCompleted: event.isPlaying == false ? value.isCompleted : false,
+          );
+          break;
+
         case VideoEventType.unknown:
           break;
       }
     }
+
 
     if (_closedCaptionFileFuture != null) {
       await _updateClosedCaptionWithFuture(_closedCaptionFileFuture);
