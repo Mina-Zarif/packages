@@ -23,6 +23,9 @@ import io.flutter.plugin.platform.PlatformView;
 import io.flutter.plugins.webviewflutter.GeneratedAndroidWebView.WebViewHostApi;
 import java.util.Map;
 import java.util.Objects;
+import android.webkit.JavascriptInterface;
+import android.os.Handler;
+import android.os.Looper;
 
 /**
  * Host api implementation for {@link WebView}.
@@ -180,13 +183,6 @@ public class WebViewHostApiImpl implements WebViewHostApi {
       return currentWebChromeClient;
     }
 
-    @Override
-    protected void onScrollChanged(int left, int top, int oldLeft, int oldTop) {
-      super.onScrollChanged(left, top, oldLeft, oldTop);
-      api.onScrollChanged(
-          this, (long) left, (long) top, (long) oldLeft, (long) oldTop, reply -> {});
-    }
-
     /**
      * Flutter API used to send messages back to Dart.
      *
@@ -264,9 +260,17 @@ public class WebViewHostApiImpl implements WebViewHostApi {
 
   @Override
   public void loadUrl(
-      @NonNull Long instanceId, @NonNull String url, @NonNull Map<String, String> headers) {
-    final WebView webView = Objects.requireNonNull(instanceManager.getInstance(instanceId));
-    webView.loadUrl(url, headers);
+          @NonNull Long instanceId, @NonNull String url, @NonNull
+  Map<String, String> headers) { final WebView webView =
+          Objects.requireNonNull(instanceManager.getInstance(instanceId)); webView.loadUrl(url, headers);
+//baishun
+      setNativeBridge(instanceId);
+  }
+
+  @SuppressLint("JavascriptInterface")
+  public void setNativeBridge(Long instanceId){
+    final WebView webView = (WebView) instanceManager.getInstance(instanceId);
+    webView.addJavascriptInterface(new NativeBridge(context), "NativeBridge");
   }
 
   @Override
@@ -427,4 +431,56 @@ public class WebViewHostApiImpl implements WebViewHostApi {
   public InstanceManager getInstanceManager() {
     return instanceManager;
   }
+}
+
+class NativeBridge {
+  private Context ctx;
+  NativeBridge(Context ctx) {
+    this.ctx = ctx;
+  }
+  // 增加JS调用接口
+  @JavascriptInterface
+  public void getConfig(String msg) {
+    Handler mainHandler = new Handler(Looper.getMainLooper());
+    mainHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        WebViewFlutterPlugin.bsEventChannel.sendEvent(msg);
+      }
+    });
+  }
+
+  @JavascriptInterface
+  public void destroy(String msg) {
+    Handler mainHandler = new Handler(Looper.getMainLooper());
+    mainHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        WebViewFlutterPlugin.bsEventChannel.sendEvent(msg);
+      }
+    });
+  }
+  
+  @JavascriptInterface
+  public void gameRecharge(String msg) {
+    Handler mainHandler = new Handler(Looper.getMainLooper());
+    mainHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        WebViewFlutterPlugin.bsEventChannel.sendEvent(msg);
+      }
+    });
+  }
+
+  @JavascriptInterface
+  public void gameLoaded(String msg) {
+    Handler mainHandler = new Handler(Looper.getMainLooper());
+    mainHandler.post(new Runnable() {
+      @Override
+      public void run() {
+        WebViewFlutterPlugin.bsEventChannel.sendEvent(msg);
+      }
+    });
+  }
+
 }
